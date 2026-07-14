@@ -2,6 +2,11 @@ package lt.lb.readablecompare;
 
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 /**
  *
@@ -48,7 +53,7 @@ public class SimpleCompare<T> implements Comparator<T> {
      * @param o2
      * @return higher value by this comparator
      */
-    public T max(T o1, T o2) {
+    public <U extends T> U max(U o1, U o2) {
         return compare(o1, CompareOperator.GREATER_EQ, o2) ? o1 : o2;
     }
 
@@ -58,7 +63,7 @@ public class SimpleCompare<T> implements Comparator<T> {
      * @param o2
      * @return lower value by this comparator
      */
-    public T min(T o1, T o2) {
+    public <U extends T> U min(U o1, U o2) {
         return compare(o1, CompareOperator.LESS_EQ, o2) ? o1 : o2;
     }
 
@@ -70,7 +75,7 @@ public class SimpleCompare<T> implements Comparator<T> {
      * @return either the value if it is in provided range, otherwise return the
      * bound which was exceeded.
      */
-    public T clamp(T min, T val, T max) {
+    public <U extends T> U clamp(U min, U val, U max) {
         return max(min(max, val), min);
     }
 
@@ -82,7 +87,7 @@ public class SimpleCompare<T> implements Comparator<T> {
      * @param max
      * @return true if value is inside given bounds
      */
-    public boolean inside(Bound bound, T min, T val, T max) {
+    public <U extends T> boolean inside(Bound bound, U min, U val, U max) {
         Objects.requireNonNull(bound, "Bound is null");
         switch (bound) {
             case INC_INC:
@@ -107,7 +112,7 @@ public class SimpleCompare<T> implements Comparator<T> {
      * @param max
      * @return true if value is outside given bounds
      */
-    public boolean outside(Bound bound, T min, T val, T max) {
+    public <U extends T> boolean outside(Bound bound, U min, U val, U max) {
         Objects.requireNonNull(bound, "Bound is null");
         switch (bound) {
             case INC_INC:
@@ -125,17 +130,87 @@ public class SimpleCompare<T> implements Comparator<T> {
     }
 
     @Override
-    public Comparator<T> reversed() {
+    public SimpleCompare<T> reversed() {
         return new SimpleCompare<>(CompareNull.reverseNullOrder(nullCmp), cmp.reversed());
     }
 
     @Override
-    public Comparator<T> thenComparing(Comparator<? super T> other) {
-        return new SimpleCompare<>(nullCmp, cmp.thenComparing(other));
+    public SimpleCompare<T> thenComparing(Comparator<? super T> other) {
+        return new SimpleCompare<>(nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other)));
     }
 
     public SimpleCompare<T> thenComparing(CompareNull nullCmp, Comparator<? super T> other) {
-        return new SimpleCompare<>(nullCmp, cmp.thenComparing(other));
+        return new SimpleCompare<>(this.nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other)));
+    }
+
+    @Override
+    public <U> SimpleCompare<T> thenComparing(Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
+        return thenComparing(nullCmp, keyExtractor, keyComparator);
+    }
+
+    public <U> SimpleCompare<T> thenComparing(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
+        Objects.requireNonNull(nullCmp);
+        Objects.requireNonNull(keyExtractor);
+        Objects.requireNonNull(keyComparator);
+        return thenComparing((a, b) -> {
+            return Compare.cmpAny(keyExtractor.apply(a), keyExtractor.apply(b), keyComparator, nullCmp);
+        });
+    }
+
+    @Override
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparing(Function<? super T, ? extends U> keyExtractor) {
+        return thenComparing(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparing(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor) {
+        return thenComparing(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    public <U> SimpleCompare<T> thenComparingOptional(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor, Comparator<? super U> keyComparator) {
+        Objects.requireNonNull(nullCmp);
+        Objects.requireNonNull(keyExtractor);
+        Objects.requireNonNull(keyComparator);
+        return thenComparing(nullCmp,(a, b) -> {
+            return Compare.cmpAny(
+                    keyExtractor.apply(a).orElse(null),
+                    keyExtractor.apply(b).orElse(null),
+                    keyComparator,
+                    nullCmp
+            );
+        });
+
+    }
+
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptional(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor) {
+        return thenComparingOptional(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptional(Function<? super T, Optional<? extends U>> keyExtractor) {
+        return thenComparingOptional(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    @Override
+    public SimpleCompare<T> thenComparingInt(ToIntFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparing((a, b) -> {
+            return Integer.compare(keyExtractor.applyAsInt(a), keyExtractor.applyAsInt(b));
+        });
+    }
+
+    @Override
+    public SimpleCompare<T> thenComparingLong(ToLongFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparing((a, b) -> {
+            return Long.compare(keyExtractor.applyAsLong(a), keyExtractor.applyAsLong(b));
+        });
+    }
+
+    @Override
+    public SimpleCompare<T> thenComparingDouble(ToDoubleFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparing((a, b) -> {
+            return Double.compare(keyExtractor.applyAsDouble(a), keyExtractor.applyAsDouble(b));
+        });
     }
 
 }
