@@ -1,4 +1,4 @@
-package lt.lb.readablecompare;
+package com.github.laim0nas100.compare;
 
 import java.util.Objects;
 
