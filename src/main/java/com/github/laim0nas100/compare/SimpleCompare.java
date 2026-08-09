@@ -14,6 +14,11 @@ import java.util.function.ToLongFunction;
  */
 public class SimpleCompare<T> implements Comparator<T> {
 
+    /**
+     * No op comparator, to build your own that tolerates everything.
+     */
+    public static final SimpleCompare BASELINE = new SimpleCompare(CompareNull.NULL_EQUAL, (a, b) -> 0);
+
     public static final SimpleCompare<Comparable<?>> SIMPLE_COMPARE_NULL_THROW = new SimpleCompare(CompareNull.NULL_THROW, Comparator.naturalOrder());
 
     public static final SimpleCompare<Comparable<?>> SIMPLE_COMPARE_NULL_LOWER = new SimpleCompare(CompareNull.NULL_LOWER, Comparator.naturalOrder());
@@ -139,13 +144,25 @@ public class SimpleCompare<T> implements Comparator<T> {
         return new SimpleCompare<>(nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other)));
     }
 
+    public SimpleCompare<T> thenComparingReversed(Comparator<? super T> other) {
+        return new SimpleCompare<>(nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other.reversed())));
+    }
+
     public SimpleCompare<T> thenComparing(CompareNull nullCmp, Comparator<? super T> other) {
         return new SimpleCompare<>(this.nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other)));
+    }
+
+    public SimpleCompare<T> thenComparingReversed(CompareNull nullCmp, Comparator<? super T> other) {
+        return new SimpleCompare<>(this.nullCmp, new SimpleCompare<>(nullCmp, cmp.thenComparing(other.reversed())));
     }
 
     @Override
     public <U> SimpleCompare<T> thenComparing(Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
         return thenComparing(nullCmp, keyExtractor, keyComparator);
+    }
+
+    public <U> SimpleCompare<T> thenComparingReversed(Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
+        return thenComparingReversed(nullCmp, keyExtractor, keyComparator);
     }
 
     public <U> SimpleCompare<T> thenComparing(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
@@ -157,20 +174,37 @@ public class SimpleCompare<T> implements Comparator<T> {
         });
     }
 
+    public <U> SimpleCompare<T> thenComparingReversed(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor, Comparator<? super U> keyComparator) {
+        Objects.requireNonNull(nullCmp);
+        Objects.requireNonNull(keyExtractor);
+        Objects.requireNonNull(keyComparator);
+        return thenComparingReversed((a, b) -> {
+            return Compare.cmpAny(keyExtractor.apply(a), keyExtractor.apply(b), keyComparator, nullCmp);
+        });
+    }
+
     @Override
     public <U extends Comparable<? super U>> SimpleCompare<T> thenComparing(Function<? super T, ? extends U> keyExtractor) {
         return thenComparing(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingReversed(Function<? super T, ? extends U> keyExtractor) {
+        return thenComparingReversed(nullCmp, keyExtractor, Comparator.naturalOrder());
     }
 
     public <U extends Comparable<? super U>> SimpleCompare<T> thenComparing(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor) {
         return thenComparing(nullCmp, keyExtractor, Comparator.naturalOrder());
     }
 
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingReversed(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor) {
+        return thenComparingReversed(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
     public <U> SimpleCompare<T> thenComparingOptional(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor, Comparator<? super U> keyComparator) {
         Objects.requireNonNull(nullCmp);
         Objects.requireNonNull(keyExtractor);
         Objects.requireNonNull(keyComparator);
-        return thenComparing(nullCmp,(a, b) -> {
+        return thenComparing(nullCmp, (a, b) -> {
             return Compare.cmpAny(
                     keyExtractor.apply(a).orElse(null),
                     keyExtractor.apply(b).orElse(null),
@@ -178,21 +212,49 @@ public class SimpleCompare<T> implements Comparator<T> {
                     nullCmp
             );
         });
+    }
 
+    public <U> SimpleCompare<T> thenComparingOptionalReversed(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor, Comparator<? super U> keyComparator) {
+        Objects.requireNonNull(nullCmp);
+        Objects.requireNonNull(keyExtractor);
+        Objects.requireNonNull(keyComparator);
+        return thenComparingReversed(nullCmp, (a, b) -> {
+            return Compare.cmpAny(
+                    keyExtractor.apply(a).orElse(null),
+                    keyExtractor.apply(b).orElse(null),
+                    keyComparator,
+                    nullCmp
+            );
+        });
     }
 
     public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptional(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor) {
         return thenComparingOptional(nullCmp, keyExtractor, Comparator.naturalOrder());
     }
 
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptionalReversed(CompareNull nullCmp, Function<? super T, Optional<? extends U>> keyExtractor) {
+        return thenComparingOptionalReversed(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
     public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptional(Function<? super T, Optional<? extends U>> keyExtractor) {
         return thenComparingOptional(nullCmp, keyExtractor, Comparator.naturalOrder());
+    }
+
+    public <U extends Comparable<? super U>> SimpleCompare<T> thenComparingOptionalReversed(Function<? super T, Optional<? extends U>> keyExtractor) {
+        return thenComparingOptionalReversed(nullCmp, keyExtractor, Comparator.naturalOrder());
     }
 
     @Override
     public SimpleCompare<T> thenComparingInt(ToIntFunction<? super T> keyExtractor) {
         Objects.requireNonNull(keyExtractor);
         return thenComparing((a, b) -> {
+            return Integer.compare(keyExtractor.applyAsInt(a), keyExtractor.applyAsInt(b));
+        });
+    }
+
+    public SimpleCompare<T> thenComparingIntReversed(ToIntFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparingReversed((a, b) -> {
             return Integer.compare(keyExtractor.applyAsInt(a), keyExtractor.applyAsInt(b));
         });
     }
@@ -205,6 +267,13 @@ public class SimpleCompare<T> implements Comparator<T> {
         });
     }
 
+    public SimpleCompare<T> thenComparingLongReversed(ToLongFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparingReversed((a, b) -> {
+            return Long.compare(keyExtractor.applyAsLong(a), keyExtractor.applyAsLong(b));
+        });
+    }
+
     @Override
     public SimpleCompare<T> thenComparingDouble(ToDoubleFunction<? super T> keyExtractor) {
         Objects.requireNonNull(keyExtractor);
@@ -213,4 +282,10 @@ public class SimpleCompare<T> implements Comparator<T> {
         });
     }
 
+    public SimpleCompare<T> thenComparingDoubleReversed(ToDoubleFunction<? super T> keyExtractor) {
+        Objects.requireNonNull(keyExtractor);
+        return thenComparingReversed((a, b) -> {
+            return Double.compare(keyExtractor.applyAsDouble(a), keyExtractor.applyAsDouble(b));
+        });
+    }
 }

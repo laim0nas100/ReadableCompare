@@ -1,7 +1,12 @@
 package com.github.laim0nas100.compare;
 
+import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongFunction;
 
 /**
  *
@@ -286,5 +291,25 @@ public abstract class Compare {
                 throw new IllegalArgumentException("Unsupported CompareNull type:" + nullCmp);
             }
         }
+    }
+
+    public static <T, U extends Comparable<? super U>> SimpleCompare<T> comparing(CompareNull nullCmp, Function<? super T, ? extends U> keyExtractor) {
+        return SimpleCompare.BASELINE.thenComparing(nullCmp, keyExtractor);
+    }
+
+    public static <T, U extends Comparable<? super U>> SimpleCompare<T> comparing(Function<? super T, ? extends U> keyExtractor) {
+        return SimpleCompare.BASELINE.thenComparing(keyExtractor);
+    }
+
+    public static <T> SimpleCompare<T> comparingInt(ToIntFunction<? super T> keyExtractor) {
+        return SimpleCompare.BASELINE.thenComparingInt(keyExtractor);
+    }
+
+    public static <T> SimpleCompare<T> comparingLong(ToLongFunction<? super T> keyExtractor) {
+        return SimpleCompare.BASELINE.thenComparingLong(keyExtractor);
+    }
+
+    public static <T> SimpleCompare<T> comparingDouble(ToDoubleFunction<? super T> keyExtractor) {
+        return SimpleCompare.BASELINE.thenComparingDouble(keyExtractor);
     }
 }
